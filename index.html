@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>สิ่งที่ต้องทำ</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen p-4" style="background-color: #807F7A;">
+
+  <!-- Header -->
+  <header class="text-center text-xl font-bold mb-4 text-white">
+    📝 สิ่งที่ต้องทำ
+  </header>
+
+  <!-- Task list -->
+  <section id="taskList" class="space-y-2">
+    <!-- dynamic render -->
+  </section>
+
+  <!-- Add button -->
+  <div class="fixed bottom-4 right-4">
+    <button id="addTaskBtn" class="bg-blue-600 text-white rounded-full px-4 py-2 shadow">
+      ➕ เพิ่มสิ่งที่ต้องทำ
+    </button>
+  </div>
+
+  <!-- Modal -->
+  <div id="taskModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+    <div class="bg-white p-4 rounded w-full max-w-md">
+      <h2 id="modalTitle" class="text-lg font-bold mb-2">เพิ่มสิ่งที่ต้องทำ</h2>
+      <input type="text" id="taskInput" class="border w-full p-2 rounded mb-2" placeholder="เช่น ซักผ้า" />
+      <div class="flex justify-end space-x-2">
+        <button id="cancelBtn" class="text-gray-600">ยกเลิก</button>
+        <button id="saveBtn" class="bg-green-600 text-white px-4 py-1 rounded">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let editingTaskId = null;
+    let userId = null;
+
+    // เริ่ม LIFF
+    liff.init({ liffId: "2007634013-k2ZQv38e" })
+      .then(() => {
+        userId = liff.getDecodedIDToken().sub;
+        console.log("userId:", userId);
+        loadTasks();
+      })
+      .catch(console.error);
+
+    function loadTasks() {
+      fetch("https://primary-production-2a6d.up.railway.app/webhook/list-todo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok && data.tasks) {
+          data.tasks.forEach(page => {
+            const id = page.id;
+            const text = page.properties.task.title[0].plain_text;
+            renderTask({ id, text });
+          });
+        }
+      })
+      .catch(console.error);
+    }
+
+    function renderTask(task) {
+      const li = document.createElement("div");
+      li.className = "bg-white p-2 rounded shadow flex justify-between items-center";
+      li.dataset.id = task.id;
+      li.innerHTML = `
+        <span>${task.text}</span>
+        <div class="space-x-2">
+          <button class="text-blue-600 editBtn">✏️</button>
+          <button class="text-red-600 deleteBtn">🗑️</button>
+        </div>
+      `;
+      taskList.appendChild(li);
+    }
+
+    // modal controls
+    const addTaskBtn = document.getElementById("addTaskBtn");
+    const taskModal = document.getElementById("taskModal");
+    const cancelBtn = document.getElementById("cancelBtn");
+    const saveBtn = document.getElementById("saveBtn");
+    const taskInput = document.getElementById("taskInput");
+    const modalTitle = document.getElementById("modalTitle");
+    const taskList = document.getElementById("taskList");
+
+    addTaskBtn.addEventListener("click", () => {
+      editingTaskId = null;
+      modalTitle.textContent = "เพิ่มสิ่งที่ต้องทำ";
+      taskInput.value = "";
+      taskModal.classList.remove("hidden");
+    });
+
+    cancelBtn.addEventListener("click", () => {
+      taskModal.classList.add("hidden");
+      taskInput.value = "";
+    });
+
+    saveBtn.addEventListener("click", () => {
+      const text = taskInput.value.trim();
+      if (!text) return;
+
+      if (editingTaskId) {
+        // edit
+        fetch("https://primary-production-2a6d.up.railway.app/webhook/edit-todo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pageId: editingTaskId,
+            task: text
+          })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.ok) {
+            alert(data.message);
+            location.reload();
+          }
+        });
+      } else {
+        // add new
+        fetch("https://primary-production-2a6d.up.railway.app/webhook/add-todo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            task: text,
+            userId: userId
+          })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.ok) {
+            alert(data.message);
+            location.reload();
+          }
+        });
+      }
+
+      taskModal.classList.add("hidden");
+      taskInput.value = "";
+    });
+
+    // edit / delete handler
+    taskList.addEventListener("click", e => {
+      if (e.target.classList.contains("editBtn")) {
+        const parent = e.target.closest("div[data-id]");
+        const id = parent.dataset.id;
+        const text = parent.querySelector("span").textContent;
+        editingTaskId = id;
+        taskInput.value = text;
+        modalTitle.textContent = "แก้ไขสิ่งที่ต้องทำ";
+        taskModal.classList.remove("hidden");
+      }
+
+      if (e.target.classList.contains("deleteBtn")) {
+        const parent = e.target.closest("div[data-id]");
+        fetch("https://primary-production-2a6d.up.railway.app/webhook/delete-todo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pageId: parent.dataset.id
+          })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.ok) {
+            alert(data.message);
+            parent.remove();
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>
