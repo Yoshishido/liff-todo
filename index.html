@@ -62,7 +62,7 @@
         if (data.ok && data.tasks) {
           data.tasks.forEach(page => {
             const id = page.id;
-            const text = page.properties.task.title[0].plain_text;
+            const text = page.name;
             renderTask({ id, text });
           });
         }
