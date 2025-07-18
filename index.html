@@ -45,9 +45,13 @@
     // เริ่ม LIFF
     liff.init({ liffId: "2007634013-k2ZQv38e" })
       .then(() => {
+        if (liff.isLoggedIn()) {
         userId = liff.getDecodedIDToken().sub;
         console.log("userId:", userId);
         loadTasks();
+        } else {
+          liff.login();
+        }
       })
       .catch(console.error);
 
