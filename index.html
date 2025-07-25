@@ -166,6 +166,7 @@
       }
 
       if (e.target.classList.contains("deleteBtn")) {
+        if (confirm("คุณแน่ใจหรือไม่ว่าต้องการลบรายการนี้?")) {
         const parent = e.target.closest("div[data-id]");
         fetch("https://primary-production-2a6d.up.railway.app/webhook/delete-todo", {
           method: "POST",
@@ -181,6 +182,7 @@
             parent.remove();
           }
         });
+        }
       }
     });
   </script>
